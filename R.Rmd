@@ -67,3 +67,62 @@ leaflet(data = baad_with_map) %>%
   addCircleMarkers(lat = ~latitude, lng = ~longitude,popup = ~species, color=~pal(studyName))
 ```
 
+
+# loading tree height data
+
+
+
+```{r}
+library(raster)
+
+tree_height<-raster("data/Scheffer_2018/90th_percentile_height.tif")
+plot(tree_height)
+```
+
+cropping to just australia
+
+```{r}
+australia<-extent(c(111, 158, -44, -9.6))
+tree_aus <- crop(tree_height,australia)
+plot(tree_aus)
+```
+
+
+extract data
+
+
+```{r}
+library(tidyverse)
+df<-tibble(
+  tree_height=getValues(tree_aus)
+)
+xy<-coordinates(tree_aus)
+df<-cbind(df,xy)
+```
+
+
+```{r}
+prec<-getData('worldclim', var='prec', res=10)
+map<-sum(prec)
+plot(map)
+```
+
+
+
+```{r}
+df<-mutate(df,annual_precip=raster::extract(map,xy))
+
+filter(df,tree_height>0) %>%
+ggplot(aes(x=annual_precip,y=tree_height))+geom_point()
+
+```
+
+trying quantile regression
+
+
+```{r}
+
+
+
+```
+
