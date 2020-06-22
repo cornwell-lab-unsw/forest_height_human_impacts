@@ -94,15 +94,39 @@ Making world map of the annual precip
 prec<-getData('worldclim', var='prec', res=10)
 map<-sum(prec)
 plot(map)
+wind_filenames<-list.files("wc2.1_10m_wind",full.names = T)
+
+wind<-stack(wind_filenames)
+average_wind<-mean(wind)
 ```
 
 
 Scatter plot of annual precip vs tree height in Australia 
 ```{r}
-df <-mutate(df, annual_precip=raster::extract(map,xy))
+df <-mutate(df, annual_precip=raster::extract(map,xy),
+            wind_speed=raster::extract(average_wind,xy))
 
 filter(df,tree_height>0) %>%
 ggplot(aes(x=annual_precip,y=tree_height))+geom_point()
+
+filter(df,tree_height>0) %>%
+ggplot(aes(x=wind_speed,y=tree_height))+geom_point()
+
+
+df2<-filter(df,tree_height>0)
+
+a <- lm(log10(tree_height)~annual_precip*wind_speed,data=df2)
+b <- lm(log10(tree_height)~annual_precip+wind_speed,data=df2)
+c <- lm(log10(tree_height)~wind_speed,data=df2)
+d <- lm(log10(tree_height)~annual_precip,data=df2)
+
+AIC(a,b,c,d)
+
+
+step(b)
+
+
+df2
 
 ```
 
