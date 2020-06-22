@@ -3,49 +3,43 @@ title: "R Notebook"
 output: html_notebook
 ---
 
-
-
+Installing packages 
 ```{r}
 install.packages("tidyverse")
 library(tidyverse)
 ```
 
+Plot of mean annual precipitation and age using baad_with_map data
 ```{r}
 ggplot(baad_with_map, aes(mean_annual_precipitation, age, colour=vegetation)) + geom_point()
 ```
+
+Plot of mean annual precipitation and height using baad_with_map data
 ```{r}
 ggplot(baad_with_map, aes(mean_annual_precipitation, h.t)) + geom_point()
 ```
+
+Plot of mean annual precipitation and height with colours meaning growing condition using baad_with_map data
 ```{r}
 ggplot(baad_with_map, aes(mean_annual_precipitation, h.t, colour=growingCondition)) + geom_point()
 ```
 
-```{r}
-#dont know what this one means 
-ggplot(baad_with_map, aes(mean_annual_precipitation, a.ssbh)) + geom_point()
-```
-
-```{r}
-#dont know what this one means
-ggplot(baad_with_map, aes(mean_annual_precipitation, c.d)) + geom_point()
-```
-
+Plot of mean annual precipitation and latitude using baad_with_map data
 ```{r}
 ggplot(baad_with_map, aes(mean_annual_precipitation, latitude)) + geom_point()
 ```
+
+Plot of latitude and age using baad_with_map data
 ```{r}
 ggplot(baad_with_map, aes(latitude, age)) + geom_point()
 ```
 
+Plot of latitude and height using baad_with_map data
 ```{r}
 ggplot(baad_with_map, aes(latitude, h.t)) + geom_point()
 ```
-```{r}
 
-
-```
-
-
+Summarizing what i need to do before i can make the map for the species
 ```{r}
 baad_with_map %>%
   group_by(species) %>%
@@ -53,12 +47,14 @@ baad_with_map %>%
   arrange(desc(sample_size))
 ```
 
+World map with species as points
 ```{r}
 leaflet(data = baad_with_map) %>%
     addTiles() %>%
     addCircleMarkers(lat = ~latitude, lng = ~longitude,popup = ~species)
 ```
 
+Making each species a different colour on the map 
 ```{r}
 pal <- colorFactor(  palette = 'Dark2',  
                      domain = baad_with_map$studyName)
@@ -67,11 +63,8 @@ leaflet(data = baad_with_map) %>%
   addCircleMarkers(lat = ~latitude, lng = ~longitude,popup = ~species, color=~pal(studyName))
 ```
 
-
-# loading tree height data
-
-
-
+#what Will did 
+Loading tree height data this creates a map of the height heights of the world using Scheffer data
 ```{r}
 library(raster)
 
@@ -79,18 +72,14 @@ tree_height<-raster("data/Scheffer_2018/90th_percentile_height.tif")
 plot(tree_height)
 ```
 
-cropping to just australia
-
+Cropping to just Australia, first two numbers are the top left hand corner on a map lat and long and the second two are the bottom lat and long (used google maps to find the points)
 ```{r}
 australia<-extent(c(111, 158, -44, -9.6))
 tree_aus <- crop(tree_height,australia)
 plot(tree_aus)
 ```
 
-
-extract data
-
-
+Extract data, so you're getting data of the tree heights with the x and y coordinates 
 ```{r}
 library(tidyverse)
 df<-tibble(
@@ -100,7 +89,7 @@ xy<-coordinates(tree_aus)
 df<-cbind(df,xy)
 ```
 
-
+Making world map of the annual precip 
 ```{r}
 prec<-getData('worldclim', var='prec', res=10)
 map<-sum(prec)
@@ -108,21 +97,207 @@ plot(map)
 ```
 
 
-
+Scatter plot of annual precip vs tree height in Australia 
 ```{r}
-df<-mutate(df,annual_precip=raster::extract(map,xy))
+df <-mutate(df, annual_precip=raster::extract(map,xy))
 
 filter(df,tree_height>0) %>%
 ggplot(aes(x=annual_precip,y=tree_height))+geom_point()
 
 ```
 
-trying quantile regression
 
+tree_height= whole world 
+australia= map of just aus 
+tree_aus= map of just aus with tree heights
+map= map of world prec
+df=values of tree height in australia relating to the x and y with the precip 
+
+#first blog: https://www.r-bloggers.com/quantile-regression-in-r-2/
+Trying quantile regression
+```{r}
+install.packages("quantreg")
+library(quantreg)
+```
+
+Doing first blog
+```{r}
+rqfit <- rq(tree_height ~ annual_precip, data = df)
+rqfit
+```
+
+Doing first blog
+```{r}
+summary(rqfit)
+```
+
+Doing first blog + I filtered out the NAs!!!
+quantile regression line in blue and the linear regression line in red, tau is 0.5
+```{r}
+filter(df,tree_height>0 & annual_precip>0)
+df1 <- df %>%
+  filter(
+    tree_height>0 &
+    annual_precip>0
+  )
+plot(tree_height ~ annual_precip, data=df1, pch = 16, main = "tree_height ~ annual_precip")
+abline(lm(tree_height ~ annual_precip, data = df1), col = "red", lty = 2)
+abline(rq(tree_height ~ annual_precip, data = df1), col = "blue", lty = 2)
+legend("topright", legend = c("lm", "rq"), col = c("red", "blue"), lty = 2)
+```
+
+just looking at the effect of outliers, non dotted lines are the new ones, see how linear is affected and quantile isnt
+```{r}
+y <- c(df1$tree_height, 0.1, 39)
+x <- c(df1$annual_precip, 2999, 450)
+plot(y ~ x, pch = 16, main = "tree_height ~ annual_precip")
+points(c(2999, 450), c(0.1, 39), pch = 16, col = "dark orange")
+abline(lm(tree_height ~ annual_precip, data = df1), col = "red", lty = 2)
+abline(lm(y ~ x), col = "red")
+abline(rq(tree_height ~ annual_precip, data = df1), col = "blue", lty = 2)
+abline(rq(y ~ x), col = "blue")
+```
+
+shows precip
+```{r}
+multi_rqfit <- rq(tree_height ~ annual_precip, data = df1, tau = seq(0, 1, by = 0.1))
+multi_rqfit
+```
+shows tree height 
+```{r}
+multi_rqfit <- rq(annual_precip~tree_height, data = df1, tau = seq(0, 1, by = 0.1))
+multi_rqfit
+```
 
 ```{r}
+colours <- c("#ffe6e6", "#ffcccc", "#ff9999", "#ff6666", "#ff3333",
+            "#ff0000", "#cc0000", "#b30000", "#800000", "#4d0000", "#000000")
+plot(tree_height ~ annual_precip, data = df1, pch = 16, main = "tree_height ~ annual_precip")
+for (j in 1:ncol(multi_rqfit$coefficients)) {
+    abline(coef(multi_rqfit)[, j], col = colours[j])
+}
+```
 
-
+```{r}
+summary(rq(tree_height ~ annual_precip, data=df1, tau = 0.5), se = "boot", bsmethod= "xy")
 
 ```
 
+#using a different website
+https://ggplot2.tidyverse.org/reference/geom_quantile.html
+```{r}
+install.packages("ggplot2")
+library(ggplot2)
+```
+pretty sure this is tau= 0.25, 0.5, 0.95
+```{r}
+m <- ggplot(df1, aes(annual_precip, tree_height)) + geom_point()
+m + geom_quantile()
+```
+
+tau is 0.5
+```{r}
+m + geom_quantile(quantiles = 0.5)
+```
+
+tau is 0.95
+```{r}
+m + geom_quantile(quantiles = 0.95)
+```
+```{r}
+q10 <- seq(0.05, 0.95, by = 0.05)
+m + geom_quantile(quantiles = q10)
+```
+#new one from youtube 
+comparing with ols regression which i cant get because tree_height is a raster 
+https://www.youtube.com/watch?v=ucURUTVjBRo 
+```{r}
+library(quantreg)
+```
+
+
+```{r}
+data <- read_csv("df1.csv")
+attach(data)
+```
+
+```{r}
+Y <- cbind(annual_precip)
+X <- cbind(tree_height, x, y)
+```
+
+```{r}
+summary(Y)
+summary(X)
+```
+
+doesnt work because the tree height is a raster 
+```{r}
+olsreg <-lm(Y~X, data=data)
+summary(olsreg)
+```
+
+```{r}
+quantreg25 <- rq( Y ~ X, data=data, tau=0.25)
+summary(quantreg25)
+```
+
+```{r}
+quantreg50 <- rq(Y ~ X, data=data, tau=0.5)
+summary(quantreg50)
+```
+
+```{r}
+quantreg75 <- rq(Y ~ X, data=data, tau=0.75)
+summary(quantreg75)
+```
+
+```{r}
+quantreg2527 <- rq(Y ~ X, data=data, tau=c(0.25,0.75))
+summary(quantreg2527)
+```
+
+```{r}
+anova(quantreg25,quantreg75)
+```
+
+```{r}
+quantreg.all <-rq(Y~X, tau = seq(0.05, 0.95, by = 0.05), data= data)
+quantreg.plot <- summary(quantreg.all)
+plot(quantreg.all)
+```
+
+
+
+#using a different website also didnt work 
+https://rpubs.com/ibn_abdullah/rquantile
+
+```{r}
+install.packages("SparseM")
+library(SparseM)
+```
+
+```{r}
+summary(df1)
+```
+
+
+```{r}
+cor(df1)
+```
+
+```{r}
+pairs(df1, col="blue", main="Scatterplots")
+```
+
+```{r}
+hist(tree_height, prob=TRUE, col = "blue", border = "black")
+
+lines(density(tree_height))
+```
+doesnt work because the tree height is a raster 
+```{r}
+OLSreg=lm(df1,tree_height~annual_precip)
+
+summary(OLSreg)
+```
