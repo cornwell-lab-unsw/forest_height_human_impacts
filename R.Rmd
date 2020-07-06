@@ -357,7 +357,9 @@ tau is 0.95
 ```{r}
 m + geom_quantile(quantiles = 0.95)
 ```
+
 ```{r}
 q10 <- seq(0.05, 0.95, by = 0.05)
 m + geom_quantile(quantiles = q10)
 ```
+
