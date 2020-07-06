@@ -105,6 +105,7 @@ average_wind<-mean(wind)
 
 getting the solar radiation data
 ```{r}
+sol<-getData('worldclim', var='srad', res=10)
 solar_filenames<-list.files("wc2.1_10m_srad",full.names = T)
 solar<-stack(solar_filenames)
 average_solar<-mean(solar)
@@ -142,11 +143,11 @@ maximum_temp<-mean(max_t)
 ```{r}
 df <-mutate(df, annual_precip=raster::extract(map,xy),
             wind_speed=raster::extract(average_wind,xy), 
-            solar_radiation=raster::extract(average_solar,xy),
-            temperature_average=raster::extract(average_temperature,xy),
-            water_vapor=raster::extract(average_vapor, xy), 
-            min_temp=raster::extract(minimum_temp, xy),
-            max_temp=raster::extract(maximum_temp,xy))
+            solar_radiation=raster::extract(average_solar,xy))
+            #temperature_average=raster::extract(average_temperature,xy),
+            #water_vapor=raster::extract(average_vapor, xy), 
+            #min_temp=raster::extract(minimum_temp, xy),
+            #max_temp=raster::extract(maximum_temp,xy))
 ```
 
 Scatter plot of annual precip vs tree height in Australia 
@@ -235,16 +236,42 @@ AIC(a,b,c,d,e,mit,mat)
 ```
 
 ```{r}
+
+
+
 f <- lm(log10(tree_height)~annual_precip*wind_speed,data=df2)
 g <- lm(log10(tree_height)~annual_precip+wind_speed,data=df2)
 h <- lm(log10(tree_height)~annual_precip+solar_radiation,data=df2)
-i <- lm(log10(tree_height)~annual_precip*solar_radiation,data=df2)
+i <- lm(log10(tree_height)~annual_precip*solar_radiation,data=df3)
 j <- lm(log10(tree_height)~annual_precip+water_vapor,data=df2)
 k <- lm(log10(tree_height)~annual_precip*water_vapor,data=df2)
 ```
 
+
 ```{r}
+#make data complete with no NA's
+df3 <- filter(df2,!is.na(annual_precip))
+#run model
+i <- lm(log10(tree_height)~annual_precip*solar_radiation,data=df3)
+
+#get out predictions
+df3$predicted_height<-predict(i)
+
+#put predictions back in spatial context
+z <- rasterize(x=cbind(df3$x,df3$y),y=tree_aus,
+          field=df3$predicted_height,fun=mean)
+#plot
+plot(z)
+plot(log10(tree_aus))
+plot(tree_aus)
+```
+
+
+```{r}
+AIC(h,i)
 AIC(f,g,h,i,j,k)
+
+
 ```
 
 ```{r}
@@ -257,6 +284,7 @@ step(i)
 
 ```{r}
 predict(i)
+augment(i)
 ```
 
 
