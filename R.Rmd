@@ -94,40 +94,169 @@ Making world map of the annual precip
 prec<-getData('worldclim', var='prec', res=10)
 map<-sum(prec)
 plot(map)
-wind_filenames<-list.files("wc2.1_10m_wind",full.names = T)
+```
 
+getting the wind data
+```{r}
+wind_filenames<-list.files("wc2.1_10m_wind",full.names = T)
 wind<-stack(wind_filenames)
 average_wind<-mean(wind)
 ```
 
+getting the solar radiation data
+```{r}
+solar_filenames<-list.files("wc2.1_10m_srad",full.names = T)
+solar<-stack(solar_filenames)
+average_solar<-mean(solar)
+```
+
+getting the average temperature data
+```{r}
+temperature_filenames<-list.files("wc2.1_10m_tavg",full.names = T)
+temperature<-stack(temperature_filenames)
+average_temperature<-mean(temperature)
+```
+
+getting the water vapor data
+```{r}
+vapor_filenames<-list.files("wc2.1_10m_vapr",full.names = T)
+vapor<-stack(vapor_filenames)
+average_vapor<-mean(vapor)
+```
+
+getting the minimum temp data
+```{r}
+tmin_filenames<-list.files("wc2.1_10m_tmin",full.names = T)
+min_t<-stack(tmin_filenames)
+minimum_temp<-mean(min_t)
+```
+
+getting the maximmum temp data
+```{r}
+tmax_filenames<-list.files("wc2.1_10m_tmax",full.names = T)
+max_t<-stack(tmax_filenames)
+maximum_temp<-mean(max_t)
+```
+
+
+```{r}
+df <-mutate(df, annual_precip=raster::extract(map,xy),
+            wind_speed=raster::extract(average_wind,xy), 
+            solar_radiation=raster::extract(average_solar,xy),
+            temperature_average=raster::extract(average_temperature,xy),
+            water_vapor=raster::extract(average_vapor, xy), 
+            min_temp=raster::extract(minimum_temp, xy),
+            max_temp=raster::extract(maximum_temp,xy))
+```
 
 Scatter plot of annual precip vs tree height in Australia 
 ```{r}
-df <-mutate(df, annual_precip=raster::extract(map,xy),
-            wind_speed=raster::extract(average_wind,xy))
-
-filter(df,tree_height>0) %>%
+filter(precip_height,tree_height>0) %>%
 ggplot(aes(x=annual_precip,y=tree_height))+geom_point()
+```
 
+wind speed scatterplot
+```{r}
 filter(df,tree_height>0) %>%
 ggplot(aes(x=wind_speed,y=tree_height))+geom_point()
+```
+
+solar radiation scatterplot
+```{r}
+filter(df,tree_height>0) %>%
+ggplot(aes(x=solar_radiation,y=tree_height))+geom_point() +geom_smooth(method="lm")
+```
+
+temperature_average
+```{r}
+filter(df,tree_height>0) %>%
+ggplot(aes(x=temperature_average,y=tree_height))+geom_point()
+```
+
+water_vapor
+```{r}
+filter(df,tree_height>0) %>%
+ggplot(aes(x=water_vapor,y=tree_height))+geom_point()+geom_smooth(method="lm")
+```
+
+min_temp
+```{r}
+filter(df,tree_height>0) %>%
+ggplot(aes(x=min_temp,y=tree_height))+geom_point()+geom_smooth(method="lm")
+```
+
+max_temp
+```{r}
+filter(df,tree_height>0) %>%
+ggplot(aes(x=water_vapor,y=tree_height))+geom_point()+geom_smooth(method="lm")
+```
 
 
+```{r}
 df2<-filter(df,tree_height>0)
 
-a <- lm(log10(tree_height)~annual_precip*wind_speed,data=df2)
-b <- lm(log10(tree_height)~annual_precip+wind_speed,data=df2)
-c <- lm(log10(tree_height)~wind_speed,data=df2)
-d <- lm(log10(tree_height)~annual_precip,data=df2)
+a <- lm(log10(tree_height)~annual_precip,data=df2)
+b <- lm(log10(tree_height)~wind_speed,data=df2)
+c <- lm(log10(tree_height)~solar_radiation, data = df2)
+d <- lm(log10(tree_height)~temperature_average, data = df2)
+e <- lm(log10(tree_height)~water_vapor, data = df2)
+mit<- lm(log10(tree_height)~min_temp,data = df2)
+mat <- lm(log10(tree_height)~max_temp,data = df2)
+```
 
-AIC(a,b,c,d)
+```{r}
+install.packages("performance")
 
+```
 
-step(b)
+```{r}
+install.packages("parameters")
+```
 
+```{r}
+library(parameters)
+library(performance)
+```
 
-df2
+```{r}
+model_parameters(mat)
+```
 
+```{r}
+r2(mat)
+```
+
+```{r}
+summary(mat)
+```
+
+```{r}
+AIC(a,b,c,d,e,mit,mat)
+```
+
+```{r}
+f <- lm(log10(tree_height)~annual_precip*wind_speed,data=df2)
+g <- lm(log10(tree_height)~annual_precip+wind_speed,data=df2)
+h <- lm(log10(tree_height)~annual_precip+solar_radiation,data=df2)
+i <- lm(log10(tree_height)~annual_precip*solar_radiation,data=df2)
+j <- lm(log10(tree_height)~annual_precip+water_vapor,data=df2)
+k <- lm(log10(tree_height)~annual_precip*water_vapor,data=df2)
+```
+
+```{r}
+AIC(f,g,h,i,j,k)
+```
+
+```{r}
+step(k)
+```
+
+```{r}
+step(i)
+```
+
+```{r}
+predict(i)
 ```
 
 
@@ -231,97 +360,4 @@ m + geom_quantile(quantiles = 0.95)
 ```{r}
 q10 <- seq(0.05, 0.95, by = 0.05)
 m + geom_quantile(quantiles = q10)
-```
-#new one from youtube 
-comparing with ols regression which i cant get because tree_height is a raster 
-https://www.youtube.com/watch?v=ucURUTVjBRo 
-```{r}
-library(quantreg)
-```
-
-
-```{r}
-data <- read_csv("df1.csv")
-attach(data)
-```
-
-```{r}
-Y <- cbind(annual_precip)
-X <- cbind(tree_height, x, y)
-```
-
-```{r}
-summary(Y)
-summary(X)
-```
-
-doesnt work because the tree height is a raster 
-```{r}
-olsreg <-lm(Y~X, data=data)
-summary(olsreg)
-```
-
-```{r}
-quantreg25 <- rq( Y ~ X, data=data, tau=0.25)
-summary(quantreg25)
-```
-
-```{r}
-quantreg50 <- rq(Y ~ X, data=data, tau=0.5)
-summary(quantreg50)
-```
-
-```{r}
-quantreg75 <- rq(Y ~ X, data=data, tau=0.75)
-summary(quantreg75)
-```
-
-```{r}
-quantreg2527 <- rq(Y ~ X, data=data, tau=c(0.25,0.75))
-summary(quantreg2527)
-```
-
-```{r}
-anova(quantreg25,quantreg75)
-```
-
-```{r}
-quantreg.all <-rq(Y~X, tau = seq(0.05, 0.95, by = 0.05), data= data)
-quantreg.plot <- summary(quantreg.all)
-plot(quantreg.all)
-```
-
-
-
-#using a different website also didnt work 
-https://rpubs.com/ibn_abdullah/rquantile
-
-```{r}
-install.packages("SparseM")
-library(SparseM)
-```
-
-```{r}
-summary(df1)
-```
-
-
-```{r}
-cor(df1)
-```
-
-```{r}
-pairs(df1, col="blue", main="Scatterplots")
-```
-
-```{r}
-hist(tree_height, prob=TRUE, col = "blue", border = "black")
-
-lines(density(tree_height))
-```
-doesnt work because the tree height is a raster 
-```{r}
-OLSreg=lm(df1,tree_height~annual_precip)
-
-summary(OLSreg)
 ```
