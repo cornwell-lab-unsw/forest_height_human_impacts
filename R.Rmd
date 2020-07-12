@@ -2,8 +2,8 @@
 title: "R Notebook"
 output: html_notebook
 ---
-
-Installing packages 
+#testing things out
+Installing packages
 ```{r}
 install.packages("tidyverse")
 library(tidyverse)
@@ -105,7 +105,6 @@ average_wind<-mean(wind)
 
 getting the solar radiation data
 ```{r}
-sol<-getData('worldclim', var='srad', res=10)
 solar_filenames<-list.files("wc2.1_10m_srad",full.names = T)
 solar<-stack(solar_filenames)
 average_solar<-mean(solar)
@@ -143,56 +142,56 @@ maximum_temp<-mean(max_t)
 ```{r}
 df <-mutate(df, annual_precip=raster::extract(map,xy),
             wind_speed=raster::extract(average_wind,xy), 
-            solar_radiation=raster::extract(average_solar,xy))
-            #temperature_average=raster::extract(average_temperature,xy),
-            #water_vapor=raster::extract(average_vapor, xy), 
-            #min_temp=raster::extract(minimum_temp, xy),
-            #max_temp=raster::extract(maximum_temp,xy))
+            solar_radiation=raster::extract(average_solar,xy),
+            temperature_average=raster::extract(average_temperature,xy),
+            water_vapor=raster::extract(average_vapor, xy), 
+            min_temp=raster::extract(minimum_temp, xy),
+            max_temp=raster::extract(maximum_temp,xy))
 ```
 
-Scatter plot of annual precip vs tree height in Australia 
+Scatter plot of annual precip vs tree height in Australia annual_precip
 ```{r}
-filter(precip_height,tree_height>0) %>%
+filter(df,tree_height>0) %>%
 ggplot(aes(x=annual_precip,y=tree_height))+geom_point()
 ```
 
-wind speed scatterplot
+wind_speed scatterplot
 ```{r}
 filter(df,tree_height>0) %>%
 ggplot(aes(x=wind_speed,y=tree_height))+geom_point()
 ```
 
-solar radiation scatterplot
+solar_radiation scatterplot
 ```{r}
 filter(df,tree_height>0) %>%
 ggplot(aes(x=solar_radiation,y=tree_height))+geom_point() +geom_smooth(method="lm")
 ```
 
-temperature_average
+temperature_average scatterplot
 ```{r}
 filter(df,tree_height>0) %>%
 ggplot(aes(x=temperature_average,y=tree_height))+geom_point()
 ```
 
-water_vapor
+water_vapor scatterplot
 ```{r}
 filter(df,tree_height>0) %>%
 ggplot(aes(x=water_vapor,y=tree_height))+geom_point()+geom_smooth(method="lm")
 ```
 
-min_temp
+min_temp scatterplot
 ```{r}
 filter(df,tree_height>0) %>%
 ggplot(aes(x=min_temp,y=tree_height))+geom_point()+geom_smooth(method="lm")
 ```
 
-max_temp
+max_temp scatterplot
 ```{r}
 filter(df,tree_height>0) %>%
 ggplot(aes(x=water_vapor,y=tree_height))+geom_point()+geom_smooth(method="lm")
 ```
 
-
+linear models of each variable by themselves 
 ```{r}
 df2<-filter(df,tree_height>0)
 
@@ -205,29 +204,12 @@ mit<- lm(log10(tree_height)~min_temp,data = df2)
 mat <- lm(log10(tree_height)~max_temp,data = df2)
 ```
 
-```{r}
-install.packages("performance")
-
-```
-
-```{r}
-install.packages("parameters")
-```
-
+getting summary stuff for the model
 ```{r}
 library(parameters)
 library(performance)
-```
-
-```{r}
 model_parameters(mat)
-```
-
-```{r}
 r2(mat)
-```
-
-```{r}
 summary(mat)
 ```
 
@@ -235,69 +217,74 @@ summary(mat)
 AIC(a,b,c,d,e,mit,mat)
 ```
 
+testing different models with different variables 
 ```{r}
-
-
-
 f <- lm(log10(tree_height)~annual_precip*wind_speed,data=df2)
 g <- lm(log10(tree_height)~annual_precip+wind_speed,data=df2)
 h <- lm(log10(tree_height)~annual_precip+solar_radiation,data=df2)
-i <- lm(log10(tree_height)~annual_precip*solar_radiation,data=df3)
+i <- lm(log10(tree_height)~annual_precip*solar_radiation,data=df2)
 j <- lm(log10(tree_height)~annual_precip+water_vapor,data=df2)
 k <- lm(log10(tree_height)~annual_precip*water_vapor,data=df2)
-```
-
-
-```{r}
-#make data complete with no NA's
-df3 <- filter(df2,!is.na(annual_precip))
-#run model
-i <- lm(log10(tree_height)~annual_precip*solar_radiation,data=df3)
-
-#get out predictions
-df3$predicted_height<-predict(i)
-
-#put predictions back in spatial context
-z <- rasterize(x=cbind(df3$x,df3$y),y=tree_aus,
-          field=df3$predicted_height,fun=mean)
-#plot
-plot(z)
-plot(log10(tree_aus))
-plot(tree_aus)
-```
-
-
-```{r}
-AIC(h,i)
-AIC(f,g,h,i,j,k)
-
-
+l <- lm(log10(tree_height)~annual_precip*water_vapor*solar_radiation,data=df2)
+m <- lm(log10(tree_height)~annual_precip*water_vapor*solar_radiation*max_temp,data=df2)
+n <- lm(log10(tree_height)~annual_precip*water_vapor*solar_radiation*max_temp*temperature_average,data=df2) 
+o <- lm(log10(tree_height)~annual_precip*water_vapor*solar_radiation*max_temp*temperature_average*min_temp,data=df2)
+p <- lm(log10(tree_height)~annual_precip*water_vapor*solar_radiation*max_temp*temperature_average*min_temp*wind_speed,data=df2)
 ```
 
 ```{r}
-step(k)
+AIC(i,j,k, l,m,n,o,p)
 ```
 
 ```{r}
 step(i)
 ```
 
+make data complete with no NA's
 ```{r}
-predict(i)
-augment(i)
+df3 <- filter(df2,!is.na(annual_precip))
 ```
 
+run model
+```{r}
+model <- lm(log10(tree_height)~annual_precip*water_vapor*solar_radiation*max_temp*temperature_average*min_temp*wind_speed,data=df3)
+```
 
-tree_height= whole world 
-australia= map of just aus 
-tree_aus= map of just aus with tree heights
-map= map of world prec
-df=values of tree height in australia relating to the x and y with the precip 
+get out predictions
+```{r}
+df3$predicted_height<-predict(model)
+```
+
+put predictions back in spatial context
+```{r}
+z <- rasterize(x=cbind(df3$x,df3$y),y=tree_aus,
+          field=df3$predicted_height,fun=mean)
+```
+
+plot
+```{r}
+plot(z)
+plot(log10(tree_aus))
+plot(tree_aus)
+```
+
+trying quantile regression on the best linear model 
+```{r}
+ld <- ggplot(df3, aes(tree_height, annual_precip*water_vapor*solar_radiation*max_temp*temperature_average*min_temp*wind_speed)) + geom_point()
+ld + geom_quantile()
+```
+
+```{r}
+ld + geom_quantile(quantiles = 0.5)
+```
 
 #first blog: https://www.r-bloggers.com/quantile-regression-in-r-2/
-Trying quantile regression
+Trying quantile regression just tree height and annual precip 
 ```{r}
 install.packages("quantreg")
+```
+
+```{r}
 library(quantreg)
 ```
 
@@ -370,6 +357,7 @@ https://ggplot2.tidyverse.org/reference/geom_quantile.html
 install.packages("ggplot2")
 library(ggplot2)
 ```
+
 pretty sure this is tau= 0.25, 0.5, 0.95
 ```{r}
 m <- ggplot(df1, aes(annual_precip, tree_height)) + geom_point()
@@ -390,4 +378,5 @@ m + geom_quantile(quantiles = 0.95)
 q10 <- seq(0.05, 0.95, by = 0.05)
 m + geom_quantile(quantiles = q10)
 ```
+
 
