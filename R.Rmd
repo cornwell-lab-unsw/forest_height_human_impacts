@@ -305,6 +305,6 @@ plot(different2)
 summary(p_rq)
 ```
 
-- need to work out the meter differences
-- then convert to years (2.7 meters per year)
+need to work out the meter differences
+then convert to years (2.7 meters per year)
 
