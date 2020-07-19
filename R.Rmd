@@ -2,86 +2,34 @@
 title: "R Notebook"
 output: html_notebook
 ---
-#testing things out
-Installing packages
-```{r}
-install.packages("tidyverse")
-library(tidyverse)
-```
 
-Plot of mean annual precipitation and age using baad_with_map data
-```{r}
-ggplot(baad_with_map, aes(mean_annual_precipitation, age, colour=vegetation)) + geom_point()
-```
-
-Plot of mean annual precipitation and height using baad_with_map data
-```{r}
-ggplot(baad_with_map, aes(mean_annual_precipitation, h.t)) + geom_point()
-```
-
-Plot of mean annual precipitation and height with colours meaning growing condition using baad_with_map data
-```{r}
-ggplot(baad_with_map, aes(mean_annual_precipitation, h.t, colour=growingCondition)) + geom_point()
-```
-
-Plot of mean annual precipitation and latitude using baad_with_map data
-```{r}
-ggplot(baad_with_map, aes(mean_annual_precipitation, latitude)) + geom_point()
-```
-
-Plot of latitude and age using baad_with_map data
-```{r}
-ggplot(baad_with_map, aes(latitude, age)) + geom_point()
-```
-
-Plot of latitude and height using baad_with_map data
-```{r}
-ggplot(baad_with_map, aes(latitude, h.t)) + geom_point()
-```
-
-Summarizing what i need to do before i can make the map for the species
-```{r}
-baad_with_map %>%
-  group_by(species) %>%
-  summarize(sample_size=n()) %>%
-  arrange(desc(sample_size))
-```
-
-World map with species as points
-```{r}
-leaflet(data = baad_with_map) %>%
-    addTiles() %>%
-    addCircleMarkers(lat = ~latitude, lng = ~longitude,popup = ~species)
-```
-
-Making each species a different colour on the map 
-```{r}
-pal <- colorFactor(  palette = 'Dark2',  
-                     domain = baad_with_map$studyName)
-leaflet(data = baad_with_map) %>%  
-  addTiles() %>%  
-  addCircleMarkers(lat = ~latitude, lng = ~longitude,popup = ~species, color=~pal(studyName))
-```
-
-#what Will did 
-Loading tree height data this creates a map of the height heights of the world using Scheffer data
-```{r}
+```{r, results='hide'}
 library(raster)
+library(sp)
+library(raster)
+library(tidyverse)
+library(parameters)
+library(performance)
+library(quantreg)
+```
 
+### Map of actual forest height Australia
+After loading Scheffer et al. (2018) data set, we created a map of the tree height distribution around the globe.
+```{r}
 tree_height<-raster("data/Scheffer_2018/90th_percentile_height.tif")
 plot(tree_height)
 ```
 
-Cropping to just Australia, first two numbers are the top left hand corner on a map lat and long and the second two are the bottom lat and long (used google maps to find the points)
+We then cropped the world map of tree height just to Australia, by calculating the latitude and longitude around Australia.
 ```{r}
 australia<-extent(c(111, 158, -44, -9.6))
 tree_aus <- crop(tree_height,australia)
 plot(tree_aus)
 ```
 
-Extract data, so you're getting data of the tree heights with the x and y coordinates 
+We then extracted the data from the world map of tree height distribution.
 ```{r}
-library(tidyverse)
+
 df<-tibble(
   tree_height=getValues(tree_aus)
 )
@@ -89,35 +37,38 @@ xy<-coordinates(tree_aus)
 df<-cbind(df,xy)
 ```
 
-Making world map of the annual precip 
+
+## Map of predicted forest height in Australia
+
+We loaded the global annual precipitation data from WorldClim and created a map of the results. 
 ```{r}
 prec<-getData('worldclim', var='prec', res=10)
 map<-sum(prec)
 plot(map)
 ```
 
-getting the wind data
+We loaded the global annual wind speed data from WorldClim and stacked the 12 sets of data together representing the 12 months of the year.
 ```{r}
 wind_filenames<-list.files("wc2.1_10m_wind",full.names = T)
 wind<-stack(wind_filenames)
 average_wind<-mean(wind)
 ```
 
-getting the solar radiation data
+We loaded the global annual solar radiation data from WorldClim and stacked the 12 sets of data together representing the 12 months of the year.
 ```{r}
 solar_filenames<-list.files("wc2.1_10m_srad",full.names = T)
 solar<-stack(solar_filenames)
 average_solar<-mean(solar)
 ```
 
-getting the average temperature data
+We loaded the global annual average temperature data from WorldClim and stacked the 12 sets of data together representing the 12 months of the year.
 ```{r}
 temperature_filenames<-list.files("wc2.1_10m_tavg",full.names = T)
 temperature<-stack(temperature_filenames)
 average_temperature<-mean(temperature)
 ```
 
-getting the water vapor data
+We loaded the global annual water vapour data from WorldClim and stacked the 12 sets of data together representing the 12 months of the year.
 ```{r}
 vapor_filenames<-list.files("wc2.1_10m_vapr",full.names = T)
 vapor<-stack(vapor_filenames)
@@ -138,7 +89,27 @@ max_t<-stack(tmax_filenames)
 maximum_temp<-mean(max_t)
 ```
 
+We then imported clay soil data from ---
+```{r}
+clay <- read_csv("clay1.csv")
+```
 
+We then filtered out the NAs from the data. 
+```{r}
+clay_clean <- filter(clay,!is.na(clay))
+```
+
+We then turned the csv to a rasterbrick
+```{r}
+clay_raster <- rasterize(x=cbind(clay_clean$x,clay_clean$y),y=tree_aus, field=clay_clean, fun=mean)
+```
+
+Converted to a rasterlayer
+```{r}
+clay_pls <- raster(clay_raster)
+```
+
+We the cropped each of the predictors to the coordinates of Australia, to create a data set including all the predictors.
 ```{r}
 df <-mutate(df, annual_precip=raster::extract(map,xy),
             wind_speed=raster::extract(average_wind,xy), 
@@ -146,55 +117,59 @@ df <-mutate(df, annual_precip=raster::extract(map,xy),
             temperature_average=raster::extract(average_temperature,xy),
             water_vapor=raster::extract(average_vapor, xy), 
             min_temp=raster::extract(minimum_temp, xy),
-            max_temp=raster::extract(maximum_temp,xy))
+            max_temp=raster::extract(maximum_temp,xy),
+            clay_data=raster::extract(clay_pls,xy))
 ```
 
-Scatter plot of annual precip vs tree height in Australia annual_precip
+We then created a scatter plot comparing the Australian annual precipitation to the Australian distribution of tree height. 
 ```{r}
 filter(df,tree_height>0) %>%
-ggplot(aes(x=annual_precip,y=tree_height))+geom_point()
+ggplot(aes(x=annual_precip,y=tree_height)) + geom_point() + geom_smooth(method="lm")
 ```
 
-wind_speed scatterplot
+We then created a scatter plot comparing the Australian annual wind speed to the Australian distribution of tree height. 
 ```{r}
 filter(df,tree_height>0) %>%
-ggplot(aes(x=wind_speed,y=tree_height))+geom_point()
+ggplot(aes(x=wind_speed,y=tree_height)) + geom_point() + geom_smooth(method="lm")
 ```
 
-solar_radiation scatterplot
+We then created a scatter plot comparing the Australian annual solar radiation to the Australian distribution of tree height.
 ```{r}
 filter(df,tree_height>0) %>%
-ggplot(aes(x=solar_radiation,y=tree_height))+geom_point() +geom_smooth(method="lm")
+ggplot(aes(x=solar_radiation,y=tree_height)) + geom_point() + geom_smooth(method="lm")
 ```
 
-temperature_average scatterplot
+We then created a scatter plot comparing the Australian annual average temperature to the Australian distribution of tree height.
 ```{r}
 filter(df,tree_height>0) %>%
-ggplot(aes(x=temperature_average,y=tree_height))+geom_point()
+ggplot(aes(x=temperature_average,y=tree_height))+geom_point() + geom_smooth(method="lm")
 ```
 
-water_vapor scatterplot
+We then created a scatter plot comparing the Australian annual water vapour to the Australian distribution of tree height.
 ```{r}
 filter(df,tree_height>0) %>%
-ggplot(aes(x=water_vapor,y=tree_height))+geom_point()+geom_smooth(method="lm")
+ggplot(aes(x=water_vapor,y=tree_height)) + geom_point() + geom_smooth(method="lm")
 ```
 
 min_temp scatterplot
 ```{r}
 filter(df,tree_height>0) %>%
-ggplot(aes(x=min_temp,y=tree_height))+geom_point()+geom_smooth(method="lm")
+ggplot(aes(x=min_temp,y=tree_height)) + geom_point() + geom_smooth(method="lm")
 ```
 
 max_temp scatterplot
 ```{r}
 filter(df,tree_height>0) %>%
-ggplot(aes(x=water_vapor,y=tree_height))+geom_point()+geom_smooth(method="lm")
+ggplot(aes(x=water_vapor,y=tree_height)) + geom_point() + geom_smooth(method="lm")
 ```
 
-linear models of each variable by themselves 
+We then filtered out the NA tree height values. 
 ```{r}
 df2<-filter(df,tree_height>0)
+```
 
+We then created linear models of each predictor with tree height logged. 
+```{r}
 a <- lm(log10(tree_height)~annual_precip,data=df2)
 b <- lm(log10(tree_height)~wind_speed,data=df2)
 c <- lm(log10(tree_height)~solar_radiation, data = df2)
@@ -204,179 +179,132 @@ mit<- lm(log10(tree_height)~min_temp,data = df2)
 mat <- lm(log10(tree_height)~max_temp,data = df2)
 ```
 
-getting summary stuff for the model
+We then looked at the getting summary of each predictor.
 ```{r}
-library(parameters)
-library(performance)
 model_parameters(mat)
 r2(mat)
 summary(mat)
 ```
 
+We then completed an Akaike's An Information Criterion on each of the linear models of each predictor. 
 ```{r}
 AIC(a,b,c,d,e,mit,mat)
 ```
 
-testing different models with different variables 
+We then tried different models with different information to discover what model was most successful.
 ```{r}
-f <- lm(log10(tree_height)~annual_precip*wind_speed,data=df2)
-g <- lm(log10(tree_height)~annual_precip+wind_speed,data=df2)
-h <- lm(log10(tree_height)~annual_precip+solar_radiation,data=df2)
 i <- lm(log10(tree_height)~annual_precip*solar_radiation,data=df2)
-j <- lm(log10(tree_height)~annual_precip+water_vapor,data=df2)
-k <- lm(log10(tree_height)~annual_precip*water_vapor,data=df2)
-l <- lm(log10(tree_height)~annual_precip*water_vapor*solar_radiation,data=df2)
-m <- lm(log10(tree_height)~annual_precip*water_vapor*solar_radiation*max_temp,data=df2)
-n <- lm(log10(tree_height)~annual_precip*water_vapor*solar_radiation*max_temp*temperature_average,data=df2) 
-o <- lm(log10(tree_height)~annual_precip*water_vapor*solar_radiation*max_temp*temperature_average*min_temp,data=df2)
-p <- lm(log10(tree_height)~annual_precip*water_vapor*solar_radiation*max_temp*temperature_average*min_temp*wind_speed,data=df2)
+j <- lm(log10(tree_height)~annual_precip*solar_radiation*water_vapor,data=df2)
+k <- lm(log10(tree_height)~annual_precip*solar_radiation*water_vapor*max_temp,data=df2)
+m <- lm(log10(tree_height)~annual_precip*solar_radiation*water_vapor*max_temp*temperature_average,data=df2) 
+n <- lm(log10(tree_height)~annual_precip*solar_radiation*water_vapor*max_temp*temperature_average*min_temp*wind_speed,data=df2)
+o <- lm(log10(tree_height)~annual_precip*solar_radiation*water_vapor*temperature_average*wind_speed,data=df2)
+```
+
+We then completed an Akaike's An Information Criterion on each of the linear models with the different predictors.
+```{r}
+AIC(i, j,k, l,m,n,o)
 ```
 
 ```{r}
-AIC(i,j,k, l,m,n,o,p)
+summary(o)
 ```
 
 ```{r}
-step(i)
+step(o)
 ```
 
-make data complete with no NA's
+We then filtered the data to complete with no NA's. 
 ```{r}
 df3 <- filter(df2,!is.na(annual_precip))
 ```
 
-run model
+We then ran the linear model. 
 ```{r}
-model <- lm(log10(tree_height)~annual_precip*water_vapor*solar_radiation*max_temp*temperature_average*min_temp*wind_speed,data=df3)
+model <- lm(log10(tree_height)~annual_precip*water_vapor*solar_radiation*temperature_average*wind_speed,data=df3)
 ```
 
-get out predictions
+We then predicted what the tree height would be using the linear model.
 ```{r}
 df3$predicted_height<-predict(model)
 ```
 
-put predictions back in spatial context
+We then put the predictions from the linear model back in spatial context. 
 ```{r}
 z <- rasterize(x=cbind(df3$x,df3$y),y=tree_aus,
           field=df3$predicted_height,fun=mean)
 ```
 
-plot
+We then plotted the logged predicted tree height of the linear model and the actual tree height. 
 ```{r}
 plot(z)
 plot(log10(tree_aus))
 plot(tree_aus)
 ```
 
-trying quantile regression on the best linear model 
+We then completed quantile regression on the same predictors used on the linear model.
 ```{r}
-ld <- ggplot(df3, aes(tree_height, annual_precip*water_vapor*solar_radiation*max_temp*temperature_average*min_temp*wind_speed)) + geom_point()
-ld + geom_quantile()
+p_rq <- rq(log10(tree_height)~annual_precip*solar_radiation*water_vapor*temperature_average*wind_speed,data=df3, tau=0.9)
 ```
 
 ```{r}
-ld + geom_quantile(quantiles = 0.5)
-```
-
-#first blog: https://www.r-bloggers.com/quantile-regression-in-r-2/
-Trying quantile regression just tree height and annual precip 
-```{r}
-install.packages("quantreg")
+AIC(p_rq)
 ```
 
 ```{r}
-library(quantreg)
+step(p_rq)
 ```
 
-Doing first blog
+We then predicted what the tree height would be using the quantile regression model.
 ```{r}
-rqfit <- rq(tree_height ~ annual_precip, data = df)
-rqfit
+df3$predicted_height<-predict(p_rq)
 ```
 
-Doing first blog
+We then put the predictions from the linear model back in spatial context. 
 ```{r}
-summary(rqfit)
+z_rq <- rasterize(x=cbind(df3$x,df3$y),y=tree_aus,
+          field=df3$predicted_height,fun=mean)
 ```
 
-Doing first blog + I filtered out the NAs!!!
-quantile regression line in blue and the linear regression line in red, tau is 0.5
+We then plotted the predicted tree height of the quantile regression.
 ```{r}
-filter(df,tree_height>0 & annual_precip>0)
-df1 <- df %>%
-  filter(
-    tree_height>0 &
-    annual_precip>0
-  )
-plot(tree_height ~ annual_precip, data=df1, pch = 16, main = "tree_height ~ annual_precip")
-abline(lm(tree_height ~ annual_precip, data = df1), col = "red", lty = 2)
-abline(rq(tree_height ~ annual_precip, data = df1), col = "blue", lty = 2)
-legend("topright", legend = c("lm", "rq"), col = c("red", "blue"), lty = 2)
+plot(z_rq)
 ```
 
-just looking at the effect of outliers, non dotted lines are the new ones, see how linear is affected and quantile isnt
+We then plotted the predicted tree height of the linear model, quantile regression and the actual tree height. All in meters. 
 ```{r}
-y <- c(df1$tree_height, 0.1, 39)
-x <- c(df1$annual_precip, 2999, 450)
-plot(y ~ x, pch = 16, main = "tree_height ~ annual_precip")
-points(c(2999, 450), c(0.1, 39), pch = 16, col = "dark orange")
-abline(lm(tree_height ~ annual_precip, data = df1), col = "red", lty = 2)
-abline(lm(y ~ x), col = "red")
-abline(rq(tree_height ~ annual_precip, data = df1), col = "blue", lty = 2)
-abline(rq(y ~ x), col = "blue")
+par(mfrow=c(2,2))
+plot(10^z, main="Linear model")
+plot(10^z_rq, main="Quantile regression model")
+plot(log10(tree_aus), main="Log10 of actual data")
+plot(tree_aus, main="Actual data")
 ```
 
-shows precip
+## Comparing the difference 
+We then calculated the difference between the quantile regression to the linear model (log10)
 ```{r}
-multi_rqfit <- rq(tree_height ~ annual_precip, data = df1, tau = seq(0, 1, by = 0.1))
-multi_rqfit
+different <- z_rq - z
 ```
-shows tree height 
+
+We then plotted the difference between the quantile regression to the linear model (log10). 
 ```{r}
-multi_rqfit <- rq(annual_precip~tree_height, data = df1, tau = seq(0, 1, by = 0.1))
-multi_rqfit
+plot(different)
+```
+
+We then calculated the difference between the not logged quantile regression to the actual tree height. 
+```{r}
+different2 <- 10^z_rq - tree_aus
+```
+
+We then plotted the difference between the not logged quantile regression to the actual tree height. 
+```{r}
+plot(different2)
 ```
 
 ```{r}
-colours <- c("#ffe6e6", "#ffcccc", "#ff9999", "#ff6666", "#ff3333",
-            "#ff0000", "#cc0000", "#b30000", "#800000", "#4d0000", "#000000")
-plot(tree_height ~ annual_precip, data = df1, pch = 16, main = "tree_height ~ annual_precip")
-for (j in 1:ncol(multi_rqfit$coefficients)) {
-    abline(coef(multi_rqfit)[, j], col = colours[j])
-}
+summary(p_rq)
 ```
 
-```{r}
-summary(rq(tree_height ~ annual_precip, data=df1, tau = 0.5), se = "boot", bsmethod= "xy")
-
-```
-
-#using a different website
-https://ggplot2.tidyverse.org/reference/geom_quantile.html
-```{r}
-install.packages("ggplot2")
-library(ggplot2)
-```
-
-pretty sure this is tau= 0.25, 0.5, 0.95
-```{r}
-m <- ggplot(df1, aes(annual_precip, tree_height)) + geom_point()
-m + geom_quantile()
-```
-
-tau is 0.5
-```{r}
-m + geom_quantile(quantiles = 0.5)
-```
-
-tau is 0.95
-```{r}
-m + geom_quantile(quantiles = 0.95)
-```
-
-```{r}
-q10 <- seq(0.05, 0.95, by = 0.05)
-m + geom_quantile(quantiles = q10)
-```
-
+- need to work out the meter differences
+- then convert to years (2.7 meters per year)
 
