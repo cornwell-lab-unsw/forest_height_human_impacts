@@ -29,7 +29,6 @@ plot(tree_aus)
 
 We then extracted the data from the world map of tree height distribution.
 ```{r}
-
 df<-tibble(
   tree_height=getValues(tree_aus)
 )
@@ -120,7 +119,7 @@ df <-mutate(df, annual_precip=raster::extract(map,xy),
             clay_data=raster::extract(clay_pls,xy))
 ```
 
-We then created a scatter plot comparing the Australian annual precipitation to the Australian distribution of tree height. 
+We then created a scatter plot comparing the Australian annual precipitation to the Australian distribution of tree height.
 ```{r}
 filter(df,tree_height>0) %>%
 ggplot(aes(x=annual_precip,y=tree_height)) + geom_point() + geom_smooth(method="lm")
