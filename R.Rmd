@@ -39,7 +39,6 @@ df<-cbind(df,xy)
 
 
 ## Map of predicted forest height in Australia
-
 We loaded the global annual precipitation data from WorldClim and created a map of the results. 
 ```{r}
 prec<-getData('worldclim', var='prec', res=10)
@@ -89,7 +88,7 @@ max_t<-stack(tmax_filenames)
 maximum_temp<-mean(max_t)
 ```
 
-We then imported clay soil data from ---
+We then imported clay soil data from ---.
 ```{r}
 clay <- read_csv("clay1.csv")
 ```
