@@ -38,7 +38,7 @@ df<-cbind(df,xy)
 
 
 ## Map of predicted forest height in Australia
-We loaded the global annual precipitation data from WorldClim and created a map of the results. 
+We loaded the global annual precipitation data from WorldClim and created a map of the outcome. 
 ```{r}
 prec<-getData('worldclim', var='prec', res=10)
 map<-sum(prec)
