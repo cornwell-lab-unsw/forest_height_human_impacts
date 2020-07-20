@@ -14,7 +14,7 @@ library(quantreg)
 ```
 
 ### Map of actual forest height Australia
-After loading Scheffer et al. (2018) data set, we created a map of the tree height distribution around the globe.
+After loading Scheffer et al. (2018) data set, we created a map of the tree height distribution around the world.
 ```{r}
 tree_height<-raster("data/Scheffer_2018/90th_percentile_height.tif")
 plot(tree_height)
