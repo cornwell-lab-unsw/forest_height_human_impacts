@@ -115,6 +115,16 @@ df <-mutate(df, annual_precip=raster::extract(map,xy),
             temperature_average=raster::extract(average_temperature,xy),
             water_vapor=raster::extract(average_vapor, xy), 
             min_temp=raster::extract(minimum_temp, xy),
+            max_temp=raster::extract(maximum_temp,xy))
+```
+
+```{r}
+df <-mutate(df, annual_precip=raster::extract(map,xy),
+            wind_speed=raster::extract(average_wind,xy), 
+            solar_radiation=raster::extract(average_solar,xy),
+            temperature_average=raster::extract(average_temperature,xy),
+            water_vapor=raster::extract(average_vapor, xy), 
+            min_temp=raster::extract(minimum_temp, xy),
             max_temp=raster::extract(maximum_temp,xy),
             clay_data=raster::extract(clay_pls,xy))
 ```
