@@ -6,11 +6,11 @@ output: html_notebook
 ```{r, results='hide'}
 library(raster)
 library(sp)
-library(raster)
 library(tidyverse)
 library(parameters)
 library(performance)
 library(quantreg)
+library(broom)
 ```
 
 ### Map of actual forest height Australia
@@ -40,40 +40,40 @@ df<-cbind(df,xy)
 ## Map of predicted forest height in Australia
 We loaded the global annual precipitation data from WorldClim and created a map of the results. 
 ```{r}
-prec<-getData('worldclim', var='prec', res=10)
+prec<-getData('worldclim', var='prec', res=2.5)
 map<-sum(prec)
 plot(map)
 ```
 
 We loaded the global annual wind speed data from WorldClim and stacked the 12 sets of data together representing the 12 months of the year.
 ```{r}
-wind_filenames<-list.files("wc2.1_10m_wind",full.names = T)
+wind_filenames<-list.files("wc2.1_2.5m_wind",full.names = T)
 wind<-stack(wind_filenames)
 average_wind<-mean(wind)
 ```
 
 We loaded the global annual solar radiation data from WorldClim and stacked the 12 sets of data together representing the 12 months of the year.
 ```{r}
-solar_filenames<-list.files("wc2.1_10m_srad",full.names = T)
+solar_filenames<-list.files("wc2.1_2.5m_srad",full.names = T)
 solar<-stack(solar_filenames)
 average_solar<-mean(solar)
 ```
 
 We loaded the global annual average temperature data from WorldClim and stacked the 12 sets of data together representing the 12 months of the year.
 ```{r}
-temperature_filenames<-list.files("wc2.1_10m_tavg",full.names = T)
+temperature_filenames<-list.files("wc2.1_2.5m_tavg",full.names = T)
 temperature<-stack(temperature_filenames)
 average_temperature<-mean(temperature)
 ```
 
 We loaded the global annual water vapour data from WorldClim and stacked the 12 sets of data together representing the 12 months of the year.
 ```{r}
-vapor_filenames<-list.files("wc2.1_10m_vapr",full.names = T)
+vapor_filenames<-list.files("wc2.1_2.5m_vapr",full.names = T)
 vapor<-stack(vapor_filenames)
 average_vapor<-mean(vapor)
 ```
 
-We then imported clay soil data from ---.
+We then imported clay soil data from CSIRO.
 ```{r}
 clay <- read_csv("clay1.csv")
 ```
@@ -146,9 +146,9 @@ clay2 <- lm(log10(tree_height)~clay,data = df2)
 
 We then looked at the getting summary of each predictor.
 ```{r}
-model_parameters(mat)
-r2(mat)
-summary(mat)
+model_parameters(a)
+r2(a)
+summary(a)
 ```
 
 We then completed an Akaike's An Information Criterion on each of the linear models of each predictor. 
@@ -169,6 +169,12 @@ We then completed an Akaike's An Information Criterion on each of the linear mod
 ```{r}
 AIC(i,j,k,m,n,o)
 ```
+
+We then created a table of statistical measurements on the best model. 
+```{r}
+glance(o)
+```
+
 
 We then filtered the data to complete with no NA's. 
 ```{r}
@@ -203,11 +209,14 @@ We then completed quantile regression on the same predictors used on the linear 
 p_rq <- rq(log10(tree_height)~annual_precip*solar_radiation*water_vapor*temperature_average*wind_speed*clay,data=df3, tau=0.9)
 ```
 
-We then completed an Akaike's An Information Criterion on each of the quantile regression.
+```{r}
+glance(p_rq)
+```
+
+We then completed an Akaike's Information Criterion on each of the quantile regression.
 ```{r}
 AIC(p_rq)
 ```
-
 
 We then predicted what the tree height would be using the quantile regression model.
 ```{r}
@@ -222,16 +231,18 @@ z_rq <- rasterize(x=cbind(df3$x,df3$y),y=tree_aus,
 
 We then plotted the predicted tree height of the quantile regression.
 ```{r}
-plot(z_rq)
+plot(10^z_rq)
 ```
 
-We then plotted the predicted tree height of the linear model, quantile regression and the actual tree height. All in meters. 
+We then plotted the predicted tree height of the linear model, quantile regression and the actual tree height. All in meters.
 ```{r}
-par(mfrow=c(2,2))
-plot(10^z, main="Linear model")
-plot(10^z_rq, main="Quantile regression model")
-plot(log10(tree_aus), main="Log10 of actual data")
-plot(tree_aus, main="Actual data")
+jpeg(file="saving_plot1.jpeg",
+width=6, height=2.5, units="in", res=200)
+par(mfrow=c(1,3))
+plot(10^z, main="A")
+plot(10^z_rq, main="B")
+plot(tree_aus, main="C")
+dev.off()
 ```
 
 ## Comparing the difference 
@@ -242,7 +253,10 @@ different <- 10^z_rq - 10^z
 
 We then plotted the difference between the quantile regression to the linear model (log10). 
 ```{r}
-plot(different)
+jpeg(file="saving_plot2.jpeg",
+width=5, height=5, units="in", res=200)
+plot(different, below = "meters")
+dev.off()
 ```
 
 We then created a histogram of the values of the difference between the quantile regression and the linear model (log10). 
@@ -255,7 +269,7 @@ We then calculated the difference between the not logged quantile regression to 
 different2 <- 10^z_rq - tree_aus
 ```
 
-We then plotted the difference between the not logged quantile regression to the actual tree height. 
+We then plotted the difference between the not logged quantile regression to the actual tree height. meters 
 ```{r}
 plot(different2)
 ```
@@ -274,11 +288,64 @@ growth_rate_map <- rasterize(x=cbind(df3$x,df3$y),y=tree_aus,
 
 Then we plotted the growth rate of trees in australia with relation with annual precipitation. 
 ```{r}
+jpeg(file="saving_plot3.jpeg",
+width=5, height=5, units="in", res=200)
 plot(growth_rate_map)
+dev.off()
 ```
 
-Then we plotted the difference between the predicted map and the actual map over the growth rate map. 
+
+```{r}
+hist(getValues(growth_rate_map))
+```
+
+Then we plotted the difference between the predicted map and the actual map over the growth rate map. years 
 ```{r}
 plot(different2/growth_rate_map)
 ```
+
+```{r}
+jpeg(file="saving_plot4.jpeg",
+     width=8, height=8, units="in", res=200)
+par(mfrow=c(2,2))
+plot(different2, main="Meters difference")
+plot(different2/growth_rate_map, main="Years difference")
+dev.off()
+```
+
+```{r}
+df3 <- df3 %>%
+  mutate(years_from_equilibrium=(10^predicted_height- tree_height)/growth_rate)
+```
+
+include both tree height 
+```{r}
+df3 %>%
+  ggplot(aes(x=10^predicted_height, y=years_from_equilibrium)) + geom_point()
+```
+
+```{r}
+df3 %>%
+  ggplot(aes(x=tree_height, y=years_from_equilibrium)) + geom_point()
+```
+
+
+
+
+
+
+```{r}
+df$tree_height[df$tree_height==0]<-NA
+ggplot()+
+  geom_raster(data = df , aes(x = x, y = y, fill = tree_height),na.rm =TRUE)+
+  scale_fill_viridis_c()
+```
+
+```{r}
+df$tree_height[df$tree_height==0]<-NA
+ggplot()+
+  geom_raster(data = df , aes(x = x, y = y, fill = tree_height),na.rm =TRUE)+
+  scale_fill_viridis_c()
+```
+
 
