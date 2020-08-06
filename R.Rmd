@@ -3,88 +3,90 @@ title: "R Notebook"
 output: html_notebook
 ---
 
-```{r, results='hide'}
+# Are Austrlain forests out of equilibrium?
+
+
+_Lily Dun^1^_ <br></br> <br></br> _^1^University of New South Wales_
+
+```{r}
 library(raster)
 library(sp)
 library(tidyverse)
-library(parameters)
-library(performance)
 library(quantreg)
 library(broom)
 ```
 
 ### Map of actual forest height Australia
-After loading Scheffer et al. (2018) data set, we created a map of the tree height distribution around the world.
+After loading Scheffer et al. (2018) data set, I created a map of the tree height distribution around the world.
 ```{r}
 tree_height<-raster("data/Scheffer_2018/90th_percentile_height.tif")
 plot(tree_height)
 ```
 
-We then cropped the world map of tree height just to Australia, by calculating the latitude and longitude around Australia.
+I then cropped the world map of tree height just to Australia, by calculating the latitude and longitude around Australia.
 ```{r}
 australia<-extent(c(111, 158, -44, -9.6))
 tree_aus <- crop(tree_height,australia)
 plot(tree_aus)
 ```
 
-We then extracted the data from the world map of tree height distribution.
+Next, I extracted the data from the world map of tree height distribution.
 ```{r}
 df<-tibble(
   tree_height=getValues(tree_aus)
 )
 xy<-coordinates(tree_aus)
 df<-cbind(df,xy)
-
 ```
 
-## Map of predicted forest height in Australia
-We loaded the global annual precipitation data from WorldClim and created a map of the results. 
+### Modeling forest height for Australia
+I loaded the global annual precipitation data from WorldClim and created a map of the results. The data was at the resolution of 2.5 minutes which is ~4.5km^2.
 ```{r}
 prec<-getData('worldclim', var='prec', res=2.5)
 map<-sum(prec)
 plot(map)
 ```
 
-We loaded the global annual wind speed data from WorldClim and stacked the 12 sets of data together representing the 12 months of the year.
+I loaded the global annual wind speed data from WorldClim and stacked the 12 sets of data together representing the 12 months of the year. The data was at the resolution of 2.5 minutes which is ~4.5km^2.
 ```{r}
 wind_filenames<-list.files("wc2.1_2.5m_wind",full.names = T)
 wind<-stack(wind_filenames)
 average_wind<-mean(wind)
 ```
 
-We loaded the global annual solar radiation data from WorldClim and stacked the 12 sets of data together representing the 12 months of the year.
+I loaded the global annual solar radiation data from WorldClim and stacked the 12 sets of data together representing the 12 months of the year. The data was at the resolution of 2.5 minutes which is ~4.5km^2.
 ```{r}
 solar_filenames<-list.files("wc2.1_2.5m_srad",full.names = T)
 solar<-stack(solar_filenames)
 average_solar<-mean(solar)
 ```
 
-We loaded the global annual average temperature data from WorldClim and stacked the 12 sets of data together representing the 12 months of the year.
+I loaded the global annual average temperature data from WorldClim and stacked the 12 sets of data together representing the 12 months of the year. The data was at the resolution of 2.5 minutes which is ~4.5km^2.
 ```{r}
 temperature_filenames<-list.files("wc2.1_2.5m_tavg",full.names = T)
 temperature<-stack(temperature_filenames)
 average_temperature<-mean(temperature)
 ```
 
-We loaded the global annual water vapour data from WorldClim and stacked the 12 sets of data together representing the 12 months of the year.
+I loaded the global annual water vapour data from WorldClim and stacked the 12 sets of data together representing the 12 months of the year. The data was at the resolution of 2.5 minutes which is ~4.5km^2.
 ```{r}
 vapor_filenames<-list.files("wc2.1_2.5m_vapr",full.names = T)
 vapor<-stack(vapor_filenames)
 average_vapor<-mean(vapor)
 ```
 
-We then imported clay soil data from CSIRO.
+Next, I imported clay soil data from CSIRO. The data was measured at 6 different depths within the soil; 0-5cm, 5-15cm, 15-30cm, 30-60cm, 60-100cm and 100-200cm. The data has a spatial resolution of 3 arc seconds which corresponds to 90m^2.  
 ```{r}
 clay <- read_csv("clay1.csv")
 ```
 
-Joined the clay data. 
+After importing the clay data I joined it to the data frame with the other climate variables. 
 ```{r}
 df <- df %>%
   left_join(clay)
 ```
 
-We the cropped each of the predictors to the coordinates of Australia, to create a data set including all the predictors.
+I then cropped each of the predictors to the coordinates of Australia, to create a data set including all the predictors.
 ```{r}
 df <-mutate(df, annual_precip=raster::extract(map,xy),
             wind_speed=raster::extract(average_wind,xy), 
@@ -93,48 +95,48 @@ df <-mutate(df, annual_precip=raster::extract(map,xy),
             water_vapor=raster::extract(average_vapor, xy))
 ```
 
-We then created a scatter plot comparing the Australian annual precipitation to the Australian distribution of tree height.
+I then created a scatter plot comparing the Australian annual precipitation to the Australian distribution of tree height.
 ```{r}
 filter(df,tree_height>0) %>%
 ggplot(aes(x=annual_precip,y=tree_height)) + geom_point() + geom_smooth(method="lm")
 ```
 
-We then created a scatter plot comparing the Australian annual wind speed to the Australian distribution of tree height. 
+I then created a scatter plot comparing the Australian annual wind speed to the Australian distribution of tree height. 
 ```{r}
 filter(df,tree_height>0) %>%
 ggplot(aes(x=wind_speed,y=tree_height)) + geom_point() + geom_smooth(method="lm")
 ```
 
-We then created a scatter plot comparing the Australian annual solar radiation to the Australian distribution of tree height.
+I then created a scatter plot comparing the Australian annual solar radiation to the Australian distribution of tree height.
 ```{r}
 filter(df,tree_height>0) %>%
 ggplot(aes(x=solar_radiation,y=tree_height)) + geom_point() + geom_smooth(method="lm")
 ```
 
-We then created a scatter plot comparing the Australian annual average temperature to the Australian distribution of tree height.
+I then created a scatter plot comparing the Australian annual average temperature to the Australian distribution of tree height.
 ```{r}
 filter(df,tree_height>0) %>%
 ggplot(aes(x=temperature_average,y=tree_height))+geom_point() + geom_smooth(method="lm")
 ```
 
-We then created a scatter plot comparing the Australian annual water vapour to the Australian distribution of tree height.
+I then created a scatter plot comparing the Australian annual water vapour to the Australian distribution of tree height.
 ```{r}
 filter(df,tree_height>0) %>%
 ggplot(aes(x=water_vapor,y=tree_height)) + geom_point() + geom_smooth(method="lm")
 ```
 
-We then created a scatter plot comparing the Australian clay to the Australian distribution of tree height
+I then created a scatter plot comparing the Australian clay percentage to the Australian distribution of tree height
 ```{r}
 filter(clay_df,tree_height>0) %>%
 ggplot(aes(x=clay,y=tree_height)) + geom_point() + geom_smooth(method="lm") + scale_y_log10()
 ```
 
-We then filtered out the NA tree height values. 
+I then filtered out the NA tree height values. 
 ```{r}
 df2<-filter(df,tree_height>0)
 ```
 
-We then created linear models of each predictor with tree height logged. 
+I then created linear models of each predictor with tree height logged. 
 ```{r}
 a <- lm(log10(tree_height)~annual_precip,data=df2)
 b <- lm(log10(tree_height)~wind_speed,data=df2)
@@ -144,19 +146,19 @@ e <- lm(log10(tree_height)~water_vapor, data = df2)
 clay2 <- lm(log10(tree_height)~clay,data = df2)
 ```
 
-We then looked at the getting summary of each predictor.
+I then looked at the getting summary of each predictor.
 ```{r}
 model_parameters(a)
 r2(a)
 summary(a)
 ```
 
-We then completed an Akaike's An Information Criterion on each of the linear models of each predictor. 
+I then completed an Akaike's An Information Criterion on each of the linear models of each predictor. 
 ```{r}
 AIC(a,b,c,d,e,clay2)
 ```
 
-We then tried different models with different information to discover what model was most successful.
+I then tried different multivaribale linear models with different information to discover what model was most successful.
 ```{r}
 i <- lm(log10(tree_height)~annual_precip*solar_radiation,data=df2)
 j <- lm(log10(tree_height)~annual_precip*solar_radiation*water_vapor,data=df2)
@@ -165,187 +167,135 @@ n <- lm(log10(tree_height)~annual_precip*solar_radiation*water_vapor*temperature
 o <- lm(log10(tree_height)~annual_precip*solar_radiation*water_vapor*temperature_average*wind_speed*clay,data=df2)
 ```
 
-We then completed an Akaike's An Information Criterion on each of the linear models with the different predictors.
+I then completed an Akaike's An Information Criterion on each of the linear models with the different predictors.
 ```{r}
 AIC(i,j,k,m,n,o)
 ```
 
-We then created a table of statistical measurements on the best model. 
+I then created a table of statistical measurements on the best multivariable linear model. 
 ```{r}
 glance(o)
 ```
 
-
-We then filtered the data to complete with no NA's. 
+I then filtered the data to complete with no NA's. 
 ```{r}
 df3 <- filter(df2,!is.na(annual_precip), !is.na(clay))
 ```
 
-We then ran the linear model. 
+I then ran the multivariable linear model. 
 ```{r}
 model <- lm(log10(tree_height)~annual_precip*water_vapor*solar_radiation*temperature_average*wind_speed*clay,data=df3)
 ```
 
-We then predicted what the tree height would be using the linear model.
+I then predicted what the tree height would be using the multivariable linear model.
 ```{r}
 df3$predicted_height<-predict(model)
 ```
 
-We then put the predictions from the linear model back in spatial context. 
+I then put the predictions from the multivariable linear model back in spatial context. 
 ```{r}
 z <- rasterize(x=cbind(df3$x,df3$y),y=tree_aus,
           field=df3$predicted_height,fun=mean)
 ```
 
-We then plotted the logged predicted tree height of the linear model and the actual tree height. 
+I then plotted the logged predicted tree height of the multivariable linear model and the actual tree height. 
 ```{r}
 plot(z)
 plot(log10(tree_aus))
 plot(tree_aus)
 ```
 
-We then completed quantile regression on the same predictors used on the linear model.
+I then completed multivariable quantile regression on the same predictors used on the multivariable linear model.
 ```{r}
 p_rq <- rq(log10(tree_height)~annual_precip*solar_radiation*water_vapor*temperature_average*wind_speed*clay,data=df3, tau=0.9)
 ```
 
+I then created a table of statistical measurements on the best multivariable quantile model. 
 ```{r}
 glance(p_rq)
 ```
 
-We then completed an Akaike's Information Criterion on each of the quantile regression.
+I then completed an Akaike's Information Criterion on each of the quantile regression.
 ```{r}
 AIC(p_rq)
 ```
 
-We then predicted what the tree height would be using the quantile regression model.
+I then predicted what the tree height would be using the quantile regression model.
 ```{r}
 df3$predicted_height<-predict(p_rq)
 ```
 
-We then put the predictions from the linear model back in spatial context. 
+I then put the predictions from the linear model back in spatial context. 
 ```{r}
 z_rq <- rasterize(x=cbind(df3$x,df3$y),y=tree_aus,
           field=df3$predicted_height,fun=mean)
 ```
 
-We then plotted the predicted tree height of the quantile regression.
+I then plotted the predicted tree height of the quantile regression.
 ```{r}
 plot(10^z_rq)
 ```
 
-We then plotted the predicted tree height of the linear model, quantile regression and the actual tree height. All in meters.
+I then plotted the predicted tree height of the linear model, quantile regression and the actual tree height. All in meters.
 ```{r}
-jpeg(file="saving_plot1.jpeg",
-width=6, height=2.5, units="in", res=200)
 par(mfrow=c(1,3))
 plot(10^z, main="A")
 plot(10^z_rq, main="B")
 plot(tree_aus, main="C")
-dev.off()
 ```
 
-## Comparing the difference 
-We then calculated the difference between the quantile regression to the linear model (log10)
+### Difference to maximum in meters
+I then calculated the difference between the quantile regression to the linear model (log10)
 ```{r}
 different <- 10^z_rq - 10^z
 ```
 
-We then plotted the difference between the quantile regression to the linear model (log10). 
+I then plotted the difference between the quantile regression to the linear model (log10). 
 ```{r}
-jpeg(file="saving_plot2.jpeg",
-width=5, height=5, units="in", res=200)
-plot(different, below = "meters")
-dev.off()
+plot(different)
 ```
 
-We then created a histogram of the values of the difference between the quantile regression and the linear model (log10). 
+I then created a histogram of the values of the difference betIween the quantile regression and the linear model (log10). 
 ```{r}
 hist(getValues(different))
 ```
 
-We then calculated the difference between the not logged quantile regression to the actual tree height. 
+I then calculated the meter difference between the not logged quantile regression to the actual tree height. 
 ```{r}
 different2 <- 10^z_rq - tree_aus
 ```
 
-We then plotted the difference between the not logged quantile regression to the actual tree height. meters 
+I then plotted the meter difference between the not logged quantile regression to the actual tree height. 
 ```{r}
 plot(different2)
 ```
 
-Next we adding growth rate which is growth_rate (m_yr) = 1.765e-01 + 6.089e-05 * precip(mm/yr). 
+### Difference to maximum in years
+Next I added growth rate which is growth_rate (m_yr) = 1.765e-01 + 6.089e-05 * precip(mm/yr). This came from the global BAAD database (Falster et al. 2015)
 ```{r}
 df3 <- df3 %>% 
   mutate(growth_rate= 1.765e-01 + 6.089e-05 * df3$annual_precip)
 ```
 
-Then we put growth rate back into spatial context.
+Then I put growth rate back into spatial context.
 ```{r}
 growth_rate_map <- rasterize(x=cbind(df3$x,df3$y),y=tree_aus,
           field=df3$growth_rate,fun=mean)
 ```
 
-Then we plotted the growth rate of trees in australia with relation with annual precipitation. 
+Then I plotted the growth rate of trees in Australia with relation with annual precipitation. 
 ```{r}
-jpeg(file="saving_plot3.jpeg",
-width=5, height=5, units="in", res=200)
 plot(growth_rate_map)
-dev.off()
 ```
 
-
-```{r}
-hist(getValues(growth_rate_map))
-```
-
-Then we plotted the difference between the predicted map and the actual map over the growth rate map. years 
+Then I plotted the difference between the predicted map and the actual map over the growth rate map, which calculates the years of growth till the trees are at equilibrium. 
 ```{r}
 plot(different2/growth_rate_map)
 ```
 
+I plotted on the same panel the difference from equilibrium in both meters and years. 
 ```{r}
-jpeg(file="saving_plot4.jpeg",
-     width=8, height=8, units="in", res=200)
 par(mfrow=c(2,2))
 plot(different2, main="Meters difference")
 plot(different2/growth_rate_map, main="Years difference")
-dev.off()
 ```
-
-```{r}
-df3 <- df3 %>%
-  mutate(years_from_equilibrium=(10^predicted_height- tree_height)/growth_rate)
-```
-
-include both tree height 
-```{r}
-df3 %>%
-  ggplot(aes(x=10^predicted_height, y=years_from_equilibrium)) + geom_point()
-```
-
-```{r}
-df3 %>%
-  ggplot(aes(x=tree_height, y=years_from_equilibrium)) + geom_point()
-```
-
-
-
-
-
-
-```{r}
-df$tree_height[df$tree_height==0]<-NA
-ggplot()+
-  geom_raster(data = df , aes(x = x, y = y, fill = tree_height),na.rm =TRUE)+
-  scale_fill_viridis_c()
-```
-
-```{r}
-df$tree_height[df$tree_height==0]<-NA
-ggplot()+
-  geom_raster(data = df , aes(x = x, y = y, fill = tree_height),na.rm =TRUE)+
-  scale_fill_viridis_c()
-```
-
-
