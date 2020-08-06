@@ -1,14 +1,11 @@
 ---
-title: "R Notebook"
+title: "Are Austrlain forests out of equilibrium?"
+author: "Lily Dun^1^ <br></br> <br></br> ^1^University of New South Wales"
+subtitle: Supplementary Information
 output: html_notebook
 ---
 
-# Are Austrlain forests out of equilibrium?
-
-
-_Lily Dun^1^_ <br></br> <br></br> _^1^University of New South Wales_
-
-```{r}
+```{r, warning=FALSE, message=TRUE}
 library(raster)
 library(sp)
 library(tidyverse)
@@ -76,12 +73,12 @@ average_vapor<-mean(vapor)
 ```
 
 Next, I imported clay soil data from CSIRO. The data was measured at 6 different depths within the soil; 0-5cm, 5-15cm, 15-30cm, 30-60cm, 60-100cm and 100-200cm. The data has a spatial resolution of 3 arc seconds which corresponds to 90m^2.  
-```{r}
+```{r, eval=FALSE}
 clay <- read_csv("clay1.csv")
 ```
 
 After importing the clay data I joined it to the data frame with the other climate variables. 
-```{r}
+```{r, eval=FALSE}
 df <- df %>%
   left_join(clay)
 ```
@@ -143,7 +140,7 @@ b <- lm(log10(tree_height)~wind_speed,data=df2)
 c <- lm(log10(tree_height)~solar_radiation, data = df2)
 d <- lm(log10(tree_height)~temperature_average, data = df2)
 e <- lm(log10(tree_height)~water_vapor, data = df2)
-clay2 <- lm(log10(tree_height)~clay,data = df2)
+f <- lm(log10(tree_height)~clay,data = df2)
 ```
 
 I then looked at the getting summary of each predictor.
@@ -154,12 +151,12 @@ summary(a)
 ```
 
 I then completed an Akaike's An Information Criterion on each of the linear models of each predictor. 
-```{r}
-AIC(a,b,c,d,e,clay2)
+```{r, warning=FALSE}
+AIC(a,b,c,d,e,f)
 ```
 
 I then tried different multivaribale linear models with different information to discover what model was most successful.
-```{r}
+```{r, warning=FALSE}
 i <- lm(log10(tree_height)~annual_precip*solar_radiation,data=df2)
 j <- lm(log10(tree_height)~annual_precip*solar_radiation*water_vapor,data=df2)
 m <- lm(log10(tree_height)~annual_precip*solar_radiation*water_vapor*temperature_average,data=df2) 
@@ -168,7 +165,7 @@ o <- lm(log10(tree_height)~annual_precip*solar_radiation*water_vapor*temperature
 ```
 
 I then completed an Akaike's An Information Criterion on each of the linear models with the different predictors.
-```{r}
+```{r, warning=FALSE}
 AIC(i,j,k,m,n,o)
 ```
 
@@ -178,7 +175,7 @@ glance(o)
 ```
 
 I then filtered the data to complete with no NA's. 
-```{r}
+```{r, warning=FALSE}
 df3 <- filter(df2,!is.na(annual_precip), !is.na(clay))
 ```
 
