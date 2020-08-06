@@ -296,3 +296,5 @@ par(mfrow=c(2,2))
 plot(different2, main="Meters difference")
 plot(different2/growth_rate_map, main="Years difference")
 ```
+
+
